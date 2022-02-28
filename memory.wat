@@ -2,7 +2,7 @@
   (global $pages (import "env" "pages") i32)
   (global $alignment (import "env" "alignment") i32)
   (import "env" "heap" (memory 1))
-  (import "env" "log" (func $log (param i32)))
+  (import "env" "log" (func $log (param i32) (param i32)))
   (global $mem_header i32 (i32.const 4))
 
   (func $align_malloc (param $size_bytes i32) (result i32)
@@ -18,75 +18,88 @@
   )
 
   (func $find_loc (export "find_loc") (param $size_bytes i32) (result i32)
-    (local $loc i32)              ;; current memory location (4 bytes)
-    (local $i i32)                ;; current iteration
-    (local $segments i32)         ;; bytes / alignment (i32 - 4 bytes)
-    (local $segmentbytes i32)     ;; sum of bytes in the iteration segment
+    (local $loc i32)                       ;; current memory location (4 bytes)
+    (local $i i32)                         ;; current iteration ( loc + i )
+    (local $requested_segments i32)         ;; bytes / alignment (i32 - 4 bytes)
+    (local $sum_segmentbytes i32)          ;; sum of bytes in the iteration segment
 
-    local.get $size_bytes         ;; calculate the number of iterations
+    local.get $size_bytes                  ;; calculate the number of segments
     global.get $alignment
     i32.div_s
-    local.set $segments
+    local.set $requested_segments
 
-    ;; todo: track pages and max memory buffer
-    (loop $position_loop          ;; cycle through memory
+    i32.const 0
+    local.get $requested_segments
+    call $log
+
+    (loop $segment_loop
+      i32.const 1
       local.get $loc
-      global.get $alignment
-      i32.mul
-      local.tee $loc
-      i32.load                    ;; push the value at the current memory position
-      i32.eqz                     ;; if the value equals zero
-      if
-        i32.const 0
-        local.set $segmentbytes   ;; reset $segmentbytes
+      call $log
 
-        local.get $i            ;; we'll always have req+padding + header
+      local.get $loc                        ;; load the 4 byte header from the memory location
+      i32.load
+
+      i32.eqz                               ;; if the memory location is 0
+      if
+        i32.const 0                         ;; reset sum of segment bytes
+        local.set $sum_segmentbytes
+
+        local.get $i              ;; i++
         i32.const 1
         i32.add
-        local.set $i            ;; i++
+        local.set $i
 
-        (loop $bytes_loop
+        (loop $segment_bytes_loop           ;; loop through the bytes in this segment
+          local.get $loc                    ;; get the next byte
           local.get $i
-          i32.load                ;; get the next memory segment
-          local.get $segmentbytes
           i32.add
-          local.set $segmentbytes ;; add to current segment count
+          local.tee $i
 
-          local.get $i            ;; i++
+          i32.load                          ;; add the segment byte to the total sum
+          local.get $sum_segmentbytes
+          i32.add
+          local.set $sum_segmentbytes
+
+          local.get $i                      ;; i++
           i32.const 1
           i32.add
           local.set $i
-  
-          local.get $i
-          local.get $segments
-          i32.le_s
-          br_if $bytes_loop      ;; jmp $bytes_loop if i <= segments
+
+          local.get $i                      ;; if i < requested_segments
+          local.get $requested_segments
+          i32.lt_s
+          br_if $segment_bytes_loop         ;; jmp to $segment_bytes_loop  
         )
 
-        local.get $segmentbytes
+        local.get $sum_segmentbytes         ;; if sum_segmentbytes > 0
         i32.const 0
-        i32.gt_s                 ;; if segmentbytes > 0
+        i32.gt_s
         if
-          local.get $segments    ;; add segments to loc
+          local.get $size_bytes             ;; add the requested bytes to the location
           local.get $loc
           i32.add
           local.set $loc
+
+          br $segment_loop                  ;; jmp to $segment_loop
         end
-      else
-        local.get $loc
-        i32.load                  ;; pull the bytes from the header
-        global.get $alignment
-        i32.div_s                 ;; calculate segments
-        local.get $loc            ;; add segments to loc
+      else                                  ;; if the memory location is not 0
+        local.get $loc                      ;; load the 4-byte header
+        i32.load
+
+        local.get $loc                      ;; add header bytes to loc
         i32.add
         local.set $loc
-        br $position_loop         ;; jmp to $position_loop
+
+        br $segment_loop                    ;; jmp back to $segment_loop
       end
     )
 
-    global.get $alignment
-    local.get  $loc
-    i32.mul
+    i32.const 1
+    local.get $loc
+    call $log
+
+    local.get $loc
   )
 
   (func (export "malloc") (param $size_bytes i32) (result i32)
