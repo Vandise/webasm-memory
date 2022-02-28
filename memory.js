@@ -20,9 +20,10 @@ let imports = {
 
   malloc(13);
 
-  heap_bytes[0] = 4;
-  heap_bytes[4] = 4;
+  heap_bytes[0] = 8; // header - 8 bytes
+  //heap_bytes[8] = 4; // header - 4 bytes
   console.log(heap_bytes);
 
+  
   console.log(find_loc(3));
 })();

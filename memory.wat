@@ -72,8 +72,11 @@
         end
       else
         local.get $loc
-        i32.const 1               ;; todo: this needs to pull the bytes and calculate segments
-        i32.add                   ;; from the mem location and add
+        i32.load                  ;; pull the bytes from the header
+        global.get $alignment
+        i32.div_s                 ;; calculate segments
+        local.get $loc            ;; add segments to loc
+        i32.add
         local.set $loc
         br $position_loop         ;; jmp to $position_loop
       end
