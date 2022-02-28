@@ -2,6 +2,7 @@
   (global $pages (import "env" "pages") i32)
   (global $alignment (import "env" "alignment") i32)
   (import "env" "heap" (memory 1))
+  (import "env" "log" (func $log (param i32)))
   (global $mem_header i32 (i32.const 4))
 
   (func $align_malloc (param $size_bytes i32) (result i32)
@@ -16,7 +17,7 @@
     i32.mul
   )
 
-  (func (export "find_loc") (param $size_bytes i32) (result i32)
+  (func $find_loc (export "find_loc") (param $size_bytes i32) (result i32)
     (local $loc i32)              ;; current memory location (4 bytes)
     (local $i i32)                ;; current iteration
     (local $segments i32)         ;; bytes / alignment (i32 - 4 bytes)
@@ -32,6 +33,7 @@
       local.get $loc
       global.get $alignment
       i32.mul
+      local.tee $loc
       i32.load                    ;; push the value at the current memory position
       i32.eqz                     ;; if the value equals zero
       if
@@ -89,14 +91,20 @@
 
   (func (export "malloc") (param $size_bytes i32) (result i32)
     (local $total_bytes i32)
+    (local $ptr i32)
     global.get $mem_header
     local.get $size_bytes
     i32.add                 ;; size_bytes + 4
     call $align_malloc      ;; align base2 size_bytes + 4
-    local.set $total_bytes  ;; $total_bytes = aligned bytes
 
-    ;; detect memory location
-    i32.const 0
+    local.tee $total_bytes  ;; $total_bytes = aligned bytes
+    call $find_loc
+    local.tee $ptr
+
+    local.get $total_bytes
+    i32.store
+
+    local.get $ptr
   )
 
   (func (export "free")
