@@ -20,7 +20,7 @@
   (func $find_loc (export "find_loc") (param $size_bytes i32) (result i32)
     (local $loc i32)                       ;; current memory location (4 bytes)
     (local $i i32)                         ;; current iteration ( loc + i )
-    (local $requested_segments i32)         ;; bytes / alignment (i32 - 4 bytes)
+    (local $requested_segments i32)        ;; bytes / alignment (i32 - 4 bytes)
     (local $sum_segmentbytes i32)          ;; sum of bytes in the iteration segment
 
     local.get $size_bytes                  ;; calculate the number of segments
@@ -76,6 +76,7 @@
         i32.const 0
         i32.gt_s
         if
+          ;; todo: this can fail if memory is freed
           local.get $size_bytes             ;; add the requested bytes to the location
           local.get $loc
           i32.add
@@ -120,7 +121,38 @@
     local.get $ptr
   )
 
-  (func (export "free")
-    nop
+  (func (export "free") (param $loc i32) (result i32)
+    (local $i i32)
+    (local $loops i32)
+    local.get $loc
+    i32.load
+    global.get $alignment
+    i32.div_s
+    local.set $loops
+
+    (loop $mem_clear_loop
+      local.get $loc
+      i32.const 0
+      i32.store
+
+      local.get $i                  ;; i++
+      i32.const 1
+      i32.add
+      local.set $i
+
+      global.get $alignment         ;; shift to the next loc + alignment
+      local.get $loc
+      i32.add
+      local.set $loc
+
+      local.get $i                  ;; if i < loops
+      local.get $loops
+      i32.lt_s
+      br_if $mem_clear_loop         ;; jmp to $mem_clear_loop 
+    )
+
+    global.get $alignment           ;; return number of bytes cleared
+    local.get $loops
+    i32.mul
   )
 )

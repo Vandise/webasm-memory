@@ -32,12 +32,26 @@ let imports = {
   const heap_bytes = new Uint8Array(memory.buffer);
 
   console.log("=== malloc 4 ===");
-  malloc(4);
+  var m1 = malloc(4);
+
   console.log("=== malloc 4 ===");
-  malloc(4);
+  var m2 = malloc(4);
+
   console.log("=== malloc 8 ===");
-  malloc(8);
+  var m3 = malloc(8);
+
   console.log("=== malloc 4 ===");
-  malloc(4);
+  var m4 = malloc(4);
+
+  console.log(heap_bytes);
+
+  console.log(m1, m2, m3, m4);
+  console.log("=== free ===");
+  console.log(free(m3));
+  console.log(heap_bytes);
+
+  console.log("=== malloc 4 ===");
+  var m5 = malloc(4);
+  var m6 = malloc(4);
   console.log(heap_bytes);
 })();
